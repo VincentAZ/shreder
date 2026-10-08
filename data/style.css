@@ -1,0 +1,292 @@
+/* Shreder — command-center styling on top of libadwaita */
+
+.brand-title {
+  font-weight: 800;
+  font-size: 1.15em;
+  letter-spacing: 0.02em;
+}
+
+.brand-sub {
+  font-size: 0.8em;
+  opacity: 0.6;
+}
+
+.navigation-sidebar row {
+  padding: 10px 12px;
+  margin: 1px 0;
+}
+
+.nav-count {
+  font-size: 0.8em;
+  font-weight: 700;
+  padding: 1px 8px;
+  border-radius: 99px;
+  background: alpha(currentColor, 0.1);
+}
+
+.hero-title {
+  font-size: 1.9em;
+  font-weight: 800;
+}
+
+.hero-sub {
+  opacity: 0.65;
+}
+
+.status-pill {
+  padding: 4px 12px;
+  border-radius: 99px;
+  font-weight: 700;
+  font-size: 0.85em;
+  background: alpha(var(--success-color), 0.15);
+  color: var(--success-color);
+}
+
+.status-pill.busy {
+  background: alpha(var(--accent-color), 0.15);
+  color: var(--accent-color);
+}
+
+/* stat cards */
+.stat-card {
+  padding: 16px 18px;
+}
+
+.stat-icon {
+  color: var(--accent-color);
+  opacity: 0.85;
+}
+
+.stat-value {
+  font-size: 1.75em;
+  font-weight: 800;
+  font-feature-settings: "tnum";
+}
+
+.stat-label {
+  font-size: 0.85em;
+  opacity: 0.65;
+}
+
+/* quick action tiles */
+button.action-tile {
+  padding: 16px;
+  border-radius: 14px;
+  min-height: 118px;
+}
+
+button.action-tile .tile-icon {
+  padding: 10px;
+  border-radius: 12px;
+  background: alpha(var(--accent-bg-color), 0.14);
+  color: var(--accent-color);
+}
+
+button.action-tile.danger .tile-icon {
+  background: alpha(var(--destructive-bg-color), 0.14);
+  color: var(--destructive-color);
+}
+
+button.action-tile .tile-title {
+  font-weight: 700;
+}
+
+button.action-tile .tile-sub {
+  font-size: 0.85em;
+  opacity: 0.65;
+}
+
+/* section headers */
+.section-title {
+  font-weight: 800;
+  font-size: 1.05em;
+}
+
+.section-sub {
+  opacity: 0.6;
+  font-size: 0.9em;
+}
+
+/* drop zone */
+.drop-zone {
+  border: 2px dashed alpha(currentColor, 0.22);
+  border-radius: 18px;
+  padding: 26px 18px;
+  background: alpha(currentColor, 0.025);
+  transition: all 150ms ease-out;
+}
+
+.drop-zone.drag-hover {
+  border-color: var(--accent-bg-color);
+  background: alpha(var(--accent-bg-color), 0.1);
+}
+
+.drop-zone .drop-icon {
+  color: var(--accent-color);
+  opacity: 0.8;
+}
+
+.drop-title {
+  font-size: 1.2em;
+  font-weight: 800;
+}
+
+/* badges */
+.badge {
+  font-size: 0.75em;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: alpha(currentColor, 0.1);
+}
+
+.badge.accent { background: alpha(var(--accent-bg-color), 0.16); color: var(--accent-color); }
+.badge.warning { background: alpha(var(--warning-bg-color), 0.2); color: var(--warning-color); }
+.badge.danger { background: alpha(var(--destructive-bg-color), 0.16); color: var(--destructive-color); }
+.badge.success { background: alpha(var(--success-bg-color), 0.16); color: var(--success-color); }
+
+/* the big red button */
+button.shred-button {
+  padding: 12px 30px;
+  font-weight: 800;
+  font-size: 1.05em;
+}
+
+/* volume usage bars */
+levelbar.usage block.filled { background: var(--accent-bg-color); border-radius: 99px; }
+levelbar.usage.high block.filled { background: var(--warning-bg-color); }
+levelbar.usage.full block.filled { background: var(--destructive-bg-color); }
+levelbar.usage block.empty { border-radius: 99px; }
+levelbar.usage trough { border-radius: 99px; min-height: 6px; }
+
+/* active job panel */
+.job-panel {
+  padding: 12px 16px;
+  border-top: 1px solid alpha(currentColor, 0.1);
+  background: var(--headerbar-bg-color);
+}
+
+.job-title {
+  font-weight: 800;
+}
+
+.job-meta {
+  font-size: 0.85em;
+  opacity: 0.7;
+  font-feature-settings: "tnum";
+}
+
+.job-percent {
+  font-size: 1.35em;
+  font-weight: 800;
+  font-feature-settings: "tnum";
+}
+
+progressbar.job-bar trough,
+progressbar.job-bar progress {
+  min-height: 8px;
+  border-radius: 99px;
+}
+
+.sidebar-job {
+  margin: 8px;
+  padding: 10px 12px;
+}
+
+.sidebar-job .job-meta {
+  font-size: 0.8em;
+}
+
+.method-pass {
+  font-family: monospace;
+  font-size: 0.85em;
+}
+
+.mono {
+  font-family: monospace;
+}
+
+/* primary destructive call-to-action: solid, not tinted */
+button.shred-button {
+  background: var(--destructive-bg-color);
+  color: var(--destructive-fg-color);
+}
+
+button.shred-button:hover {
+  background: color-mix(in srgb, var(--destructive-bg-color) 88%, white);
+}
+
+button.shred-button:active {
+  background: color-mix(in srgb, var(--destructive-bg-color) 80%, black);
+}
+
+button.shred-button:disabled {
+  background: alpha(currentColor, 0.1);
+  color: alpha(currentColor, 0.5);
+}
+
+.page-bar {
+  padding: 10px 16px;
+  border-top: 1px solid alpha(currentColor, 0.1);
+}
+
+.page-bar-count {
+  font-weight: 800;
+}
+
+/* guides */
+.scenario-card {
+  padding: 0;
+}
+
+button.scenario-header {
+  padding: 14px 16px;
+  border-radius: 12px;
+}
+
+button.scenario-header .tile-icon {
+  padding: 9px;
+  border-radius: 11px;
+  background: alpha(var(--accent-bg-color), 0.14);
+  color: var(--accent-color);
+}
+
+button.scenario-header .tile-title { font-weight: 700; }
+button.scenario-header .tile-sub { font-size: 0.88em; opacity: 0.65; }
+
+.scenario-body {
+  padding: 4px 18px 18px 18px;
+}
+
+.scenario-why {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: alpha(currentColor, 0.05);
+}
+
+.step-num {
+  min-width: 26px;
+  min-height: 26px;
+  border-radius: 99px;
+  font-weight: 800;
+  font-size: 0.9em;
+  background: alpha(var(--accent-bg-color), 0.16);
+  color: var(--accent-color);
+}
+
+.step-title {
+  font-weight: 700;
+}
+
+.tool-card {
+  padding: 14px;
+}
+
+button.scenario-header label { font-weight: normal; }
+button.scenario-header label.tile-title { font-weight: 700; }
+
+button.step-button {
+  padding: 4px 16px;
+  min-height: 28px;
+  font-size: 0.92em;
+}

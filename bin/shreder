@@ -1,0 +1,5 @@
+#!/bin/sh
+# Shreder desktop app launcher
+HERE="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+export PYTHONPATH="$HERE${PYTHONPATH:+:$PYTHONPATH}"
+exec /usr/bin/python3 -c 'import sys; from shreder.app import main; sys.exit(main())' "$@"

@@ -1,0 +1,4 @@
+#!/bin/sh
+# Shreder command-line interface
+HERE="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+exec /usr/bin/python3 -I "$HERE/shreder/cli.py" "$@"
