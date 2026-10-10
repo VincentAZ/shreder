@@ -34,11 +34,12 @@ class EngineTests(unittest.TestCase):
         real_trunc = engine.os.ftruncate
         engine.os.ftruncate = lambda fd, n: None
         try:
-            sh = engine.Shredder(engine.METHODS[method_id], verify=verify)
+            sh = engine.Shredder(engine.METHODS[method_id], verify=verify, shared="shred")
             sh.run(engine.build_plan([(path, False)]))
         finally:
             engine.os.ftruncate = real_trunc
         self.assertFalse(os.path.exists(path))
+        self.assertEqual(len(sh.stats.warnings), 1)  # it said the spy's data went too
         with open(spy, "rb") as f:
             return f.read(), sh
 
@@ -94,6 +95,51 @@ class EngineTests(unittest.TestCase):
         sh = engine.Shredder(engine.METHODS["random"])
         sh.run(engine.build_plan([(root, False)]))
         self.assertFalse(os.path.exists(root))
+
+    def test_hard_link_outside_selection_keeps_data(self):
+        """A trashed copy of a file that still has a name elsewhere: the name goes, the data must not.
+        (2026-10-09: emptying the Trash securely zeroed Python packages hard-linked into live venvs.)"""
+        keep = os.path.join(self.dir, "venv", "lib", "threadpoolctl.py")
+        write(keep, b"class ThreadpoolController: pass\n" * 100)
+        trash = os.path.join(self.dir, "Trash", "files", "old-venv")
+        os.makedirs(trash)
+        os.link(keep, os.path.join(trash, "threadpoolctl.py"))
+        write(os.path.join(trash, "plain.txt"), b"shred me")
+        plan = engine.build_plan([(os.path.join(self.dir, "Trash", "files"), True)])
+        self.assertEqual(plan.shared, {os.path.join(trash, "threadpoolctl.py"): 1})
+        sh = engine.Shredder(engine.METHODS["dod3"])
+        sh.run(plan)
+        self.assertEqual(os.listdir(os.path.join(self.dir, "Trash", "files")), [])
+        with open(keep, "rb") as f:
+            self.assertIn(b"ThreadpoolController", f.read())
+        self.assertEqual((sh.stats.files_shredded, sh.stats.shared_kept), (1, 1))
+        self.assertEqual(len(sh.stats.warnings), 1)
+        self.assertIn("data kept", sh.stats.warnings[0])
+        # the same selection, told to shred anyway: the data goes everywhere, with a warning
+        os.makedirs(trash)
+        os.link(keep, os.path.join(trash, "again.py"))
+        sh = engine.Shredder(engine.METHODS["zero"], shared="shred")
+        sh.run(engine.build_plan([(trash, False)]))
+        self.assertFalse(os.path.exists(trash))
+        self.assertEqual(os.path.getsize(keep), 0)
+        self.assertIn("destroyed too", sh.stats.warnings[0])
+
+    def test_hard_links_inside_selection_all_go(self):
+        """Every name of a file inside the selection is removed, the data overwritten once."""
+        root = os.path.join(self.dir, "box")
+        a = os.path.join(root, "a.bin")
+        write(a, b"q" * 9000)
+        os.link(a, os.path.join(root, "b.bin"))
+        os.link(a, os.path.join(root, "sub", "c.bin")) if os.makedirs(os.path.join(root, "sub")) is None else None
+        plan = engine.build_plan([(root, False)])
+        self.assertEqual(len(plan.files), 1)
+        self.assertEqual(plan.shared, {})
+        self.assertEqual(len(plan.aliases[plan.files[0][0]]), 2)
+        sh = engine.Shredder(engine.METHODS["zero"])
+        sh.run(plan)
+        self.assertFalse(os.path.exists(root))
+        self.assertEqual((sh.stats.files_shredded, sh.stats.shared_kept, sh.stats.warnings), (1, 0, []))
+        self.assertEqual(sh.stats.bytes_written, 12288)
 
     def test_older_than_filter(self):
         root = os.path.join(self.dir, "dl")
@@ -197,6 +243,15 @@ class StoreJobTests(unittest.TestCase):
         self.assertEqual(store.due_folders(), [])
         self.assertEqual(store.history()[0]["stats"]["files_shredded"], 1)
         self.assertEqual(store.stats["files"], 1)
+        # a job with something to look at (here: a kept shared file) is "warning", not a quiet success
+        write(os.path.join(d, "y.txt"), b"shared")
+        os.link(os.path.join(d, "y.txt"), os.path.join(tempfile.mkdtemp(prefix="shreder-test-"), "y"))
+        job = jobs.Job(kind="shred", title="t2", method_id="zero", targets=[(d, True)])
+        jobs.execute_job(job, store)
+        self.assertEqual(job.state, "warning")
+        self.assertIn("1 kept (shared data)", job.summary())
+        self.assertEqual(store.history()[0]["stats"]["shared_kept"], 1)
+        self.assertEqual(os.listdir(d), [])
 
     def test_routine_cancel_stops_rest_of_group(self):
         store = Store()

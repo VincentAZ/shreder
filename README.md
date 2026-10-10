@@ -48,6 +48,7 @@ shreder-cli methods | folders | run-scheduled
 
 - System locations, your home folder itself, `~/.config`, `~/.local` and similar paths are refused. A mounted drive's root can only be emptied (contents only), never removed.
 - Symlinks are removed without touching their targets. Device files, sockets and pipes are skipped. Shredding never crosses into another mounted filesystem.
+- **Hard links**: a file's data can have several names, and some tools (`uv`, `cp -l`, backup programs, deduplicators) create them on purpose. Overwriting the data under one name destroys it under every other name. When a file shares its data with files outside what you selected, Shreder removes the name and keeps the data, says so in the confirmation and the history, and leaves it to you to shred the other copies if you want the data gone. The command line can override this with `--shred-shared`.
 
 ## Honest limits
 

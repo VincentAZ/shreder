@@ -420,7 +420,8 @@ class ShrederWindow(Adw.ApplicationWindow):
                     plan = st["plan"]
                     lines.append(f"<b>{i}.</b> Shred {plan.item_count:,} file{'s' if plan.item_count != 1 else ''} "
                                  f"({system.human_size(plan.data_bytes)}) · {GLib.markup_escape_text(m.name)}, "
-                                 f"{m.short}")
+                                 f"{m.short}"
+                                 + (f" · {plan.shared_count:,} kept: shared data (hard links)" if plan.shared else ""))
                 elif st["kind"] == "wipe":
                     v = st["volume"]
                     elevated = v.work_dir is None or s.get("wipe_elevated", False)
@@ -464,6 +465,15 @@ class ShrederWindow(Adw.ApplicationWindow):
     def _settings(self):
         return self.store.settings
 
+    @staticmethod
+    def shared_note(n: int) -> str:
+        """The line a confirmation adds for files whose data also belongs to files outside the selection."""
+        if not n:
+            return ""
+        return (f"\n\n<b>{n:,} file{'s' if n != 1 else ''}</b> share{'' if n != 1 else 's'} data with files "
+                "elsewhere (hard links). Overwriting would destroy those too, so only the name goes and the "
+                "data stays. Shred the other copies as well if you want it gone.")
+
     def request_shred(self, targets, *, title: str, method_id: str | None = None,
                       verify: bool | None = None, older_than_days: float = 0,
                       include_hidden: bool = True, folder_ids=(), icon="shreder-symbolic",
@@ -497,7 +507,8 @@ class ShrederWindow(Adw.ApplicationWindow):
             body = (f"<b>{what}</b> ({system.human_size(result.data_bytes)}) will be overwritten with "
                     f"<b>{GLib.markup_escape_text(method.name)}</b> ({method.short})"
                     f"{', verified,' if verify else ''} renamed and deleted.\n\n"
-                    f"<b>This cannot be undone.</b> Shredded data cannot be recovered by any tool.")
+                    f"<b>This cannot be undone.</b> Shredded data cannot be recovered by any tool."
+                    + self.shared_note(result.shared_count))
             if self.jobs.busy:
                 body += "\n\nIt will start when the current task finishes."
 
@@ -545,7 +556,8 @@ class ShrederWindow(Adw.ApplicationWindow):
             if len(plans) > 4:
                 names += f" and {len(plans) - 4} more"
             body = (f"<b>{files:,} items</b> ({system.human_size(size)}) in {names} will be "
-                    f"securely overwritten and deleted.\n\n<b>This cannot be undone.</b>")
+                    f"securely overwritten and deleted.\n\n<b>This cannot be undone.</b>"
+                    + self.shared_note(sum(p.shared_count for _, p in plans)))
 
             def go():
                 for f, _ in plans:

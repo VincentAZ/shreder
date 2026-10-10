@@ -115,6 +115,15 @@ def cmd_shred(args):
         targets.append((path, args.keep_root))
     method = engine.get_method(args.method)
     plan = engine.build_plan(targets, older_than_days=args.older_than, include_hidden=not args.skip_hidden)
+    if plan.shared and not args.json:
+        n = plan.shared_count
+        if args.shred_shared:
+            print(f"{n} file{'s' if n != 1 else ''} share{'' if n != 1 else 's'} data with files outside the "
+                  "selection (hard links): --shred-shared destroys those files too.", file=sys.stderr)
+        else:
+            print(f"{n} file{'s' if n != 1 else ''} share{'' if n != 1 else 's'} data with files outside the "
+                  "selection (hard links): the names are removed, the data is kept "
+                  "(--shred-shared overwrites it anyway).", file=sys.stderr)
     if not args.yes and not args.json:
         print(f"About to shred {plan.item_count} items ({system.human_size(plan.data_bytes)}) "
               f"with {method.name} ({method.short}). This cannot be undone.")
@@ -123,7 +132,8 @@ def cmd_shred(args):
             return 1
     token = engine.CancelToken()
     install_cancel(token, args.stdin_cancel)
-    shredder = engine.Shredder(method, verify=args.verify, rename_passes=args.rename_passes, cancel=token)
+    shredder = engine.Shredder(method, verify=args.verify, rename_passes=args.rename_passes, cancel=token,
+                               shared="shred" if args.shred_shared else "keep")
     rep = Reporter(shredder.progress, args.json)
     shredder.log = rep.log
     try:
@@ -135,7 +145,8 @@ def cmd_shred(args):
     if args.json:
         rep.emit({"type": "done", "stats": stats.as_dict()})
     else:
-        print(f"Shredded {stats.files_shredded} files ({system.human_size(stats.bytes_data)}), "
+        kept = f", {stats.shared_kept} kept (shared data)" if stats.shared_kept else ""
+        print(f"Shredded {stats.files_shredded} files ({system.human_size(stats.bytes_data)}){kept}, "
               f"{len(stats.errors)} errors.")
     return 1 if stats.errors else 0
 
@@ -236,6 +247,9 @@ def main(argv=None):
     s.add_argument("--older-than", type=float, default=0, metavar="DAYS")
     s.add_argument("--skip-hidden", action="store_true")
     s.add_argument("--rename-passes", type=int, default=3)
+    s.add_argument("--shred-shared", action="store_true",
+                   help="overwrite a file even when its data also belongs to files outside the selection "
+                        "(hard links), destroying those too; by default only the name is removed")
     s.add_argument("-y", "--yes", action="store_true", help="do not ask for confirmation")
     s.add_argument("--json", action="store_true")
     s.add_argument("--stdin-cancel", action="store_true", help=argparse.SUPPRESS)

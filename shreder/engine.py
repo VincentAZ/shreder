@@ -145,6 +145,7 @@ class Progress:
 class Stats:
     files_shredded: int = 0
     files_failed: int = 0
+    shared_kept: int = 0         # names removed without overwriting: their data belongs to files elsewhere too
     links_removed: int = 0
     dirs_removed: int = 0
     bytes_data: int = 0          # logical size of destroyed data
@@ -156,6 +157,7 @@ class Stats:
         return {
             "files_shredded": self.files_shredded,
             "files_failed": self.files_failed,
+            "shared_kept": self.shared_kept,
             "links_removed": self.links_removed,
             "dirs_removed": self.dirs_removed,
             "bytes_data": self.bytes_data,
@@ -173,10 +175,18 @@ class Plan:
     links: list = field(default_factory=list)    # symlinks: unlinked, targets untouched
     dirs: list = field(default_factory=list)     # [(path, mtime)] deepest first
     skipped: list = field(default_factory=list)  # [(path, reason)]
+    # Hard links: one file's data can have several names. aliases[path] lists the other names inside the
+    # selection (removed with it); shared[path] counts the names outside it, whose data must survive.
+    aliases: dict = field(default_factory=dict)
+    shared: dict = field(default_factory=dict)
 
     @property
     def data_bytes(self) -> int:
         return sum(size for _, size in self.files)
+
+    @property
+    def shared_count(self) -> int:
+        return len(self.shared)
 
     @property
     def item_count(self) -> int:
@@ -189,7 +199,8 @@ def build_plan(targets, *, older_than_days: float = 0, include_hidden: bool = Tr
     contents but leaves the folder itself in place."""
     plan = Plan()
     cutoff = time.time() - older_than_days * 86400 if older_than_days else None
-    seen: set = set()
+    seen: dict = {}      # (dev, inode) -> the first path planned for it, or None when it was filtered out
+    nlinks: dict = {}    # first path -> how many names the file has on disk
 
     def old_enough(st) -> bool:
         return cutoff is None or st.st_mtime < cutoff
@@ -201,10 +212,17 @@ def build_plan(targets, *, older_than_days: float = 0, include_hidden: bool = Tr
                 plan.links.append(path)
         elif stat.S_ISREG(st.st_mode):
             if key in seen:
+                first = seen[key]
+                if first is not None and old_enough(st):
+                    plan.aliases.setdefault(first, []).append(path)
                 return
-            seen.add(key)
             if old_enough(st):
+                seen[key] = path
                 plan.files.append((path, st.st_size))
+                if st.st_nlink > 1:
+                    nlinks[path] = st.st_nlink
+            else:
+                seen[key] = None
         elif stat.S_ISDIR(st.st_mode):
             walk(path, st, root_dev, keep=False)
         else:
@@ -256,6 +274,10 @@ def build_plan(targets, *, older_than_days: float = 0, include_hidden: bool = Tr
             walk(path, st, st.st_dev, keep=keep_root)
         else:
             add_entry(path, st, st.st_dev)
+    for path, n in nlinks.items():
+        outside = n - 1 - len(plan.aliases.get(path, ()))
+        if outside > 0:
+            plan.shared[path] = outside
     return plan
 
 
@@ -277,10 +299,14 @@ def _sync_dir(path: str):
 class Shredder:
     def __init__(self, method: Method, *, verify: bool = False, rename_passes: int = 3,
                  cancel: CancelToken | None = None, progress: Progress | None = None,
-                 log=None):
+                 log=None, shared: str = "keep"):
+        """shared: what to do with a file whose data also belongs to names outside the plan (hard links).
+        "keep" (the default) removes the name and leaves the data, since overwriting it would destroy
+        those other files too; "shred" overwrites it anyway."""
         self.method = method
         self.passes = method.passes
         self.verify = verify
+        self.shared = shared
         self.rename_passes = max(0, int(rename_passes))
         self.cancel = cancel or CancelToken()
         self.progress = progress or Progress()
@@ -410,8 +436,6 @@ class Shredder:
             st = os.fstat(fd)
             if not stat.S_ISREG(st.st_mode):
                 raise OSError(errno.EINVAL, "not a regular file")
-            if st.st_nlink > 1:
-                self._warn(f"{path}: has {st.st_nlink} hard links; their content is destroyed too")
             block = st.st_blksize or 4096
             length = -(-st.st_size // block) * block  # cover the slack in the last block
             n_passes = len(self.passes)
@@ -431,6 +455,13 @@ class Shredder:
         _sync_dir(parent)
         self.stats.bytes_data += st.st_size
         return length
+
+    def _remove_name(self, path: str):
+        """Remove one name of a file without touching its data (another name keeps it, or it's gone already)."""
+        parent = os.path.dirname(path) or "."
+        final = self._obfuscate(path)
+        os.unlink(final)
+        _sync_dir(parent)
 
     def _remove_link(self, path: str):
         final = self._obfuscate(path)
@@ -474,8 +505,27 @@ class Shredder:
             p.current = path
             base = p.done
             try:
-                self.shred_file(path)
-                self.stats.files_shredded += 1
+                outside = plan.shared.get(path, 0)
+                if outside and self.shared != "shred":
+                    # Overwriting would destroy the other files that share this data: only the name goes.
+                    self._remove_name(path)
+                    self.stats.shared_kept += 1
+                    self._warn(f"{path}: not overwritten, its data also belongs to {outside} other "
+                               f"file{'s' if outside != 1 else ''} outside the selection (hard links); "
+                               "the name was removed, the data kept")
+                else:
+                    if outside:
+                        self._warn(f"{path}: overwritten although {outside} other file{'s' if outside != 1 else ''} "
+                                   "outside the selection shared its data (hard links); they are destroyed too")
+                    self.shred_file(path)
+                    self.stats.files_shredded += 1
+                    for alias in plan.aliases.get(path, ()):  # the same data under other names in the selection
+                        try:
+                            self._remove_name(alias)
+                        except FileNotFoundError:
+                            pass
+                        except OSError as e:
+                            self._error(alias, e)
             except Cancelled:
                 raise
             except FileNotFoundError:

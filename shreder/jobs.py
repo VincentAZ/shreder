@@ -67,6 +67,8 @@ class Job:
             if s.dirs_removed:
                 parts.append(f"{s.dirs_removed} folder{'s' if s.dirs_removed != 1 else ''} removed")
             parts.append(system.human_size(s.bytes_data))
+            if s.shared_kept:
+                parts.append(f"{s.shared_kept} kept (shared data)")
             text = " · ".join(parts)
         if s.files_failed or s.errors:
             n = max(s.files_failed, len(s.errors))
@@ -189,7 +191,8 @@ def execute_job(job: Job, store, on_start=None):
                 _run_wipe(job, store)
         elif job.kind == "trim":
             _run_trim(job)
-        job.state = "warning" if (job.stats.errors or job.stats.files_failed) else "done"
+        problems = job.stats.errors or job.stats.files_failed or job.stats.warnings
+        job.state = "warning" if problems else "done"  # anything to look at shows as a problem, not as a quiet success
     except Cancelled:
         job.state = "cancelled"
     except Exception as e:  # noqa: BLE001 - surface every failure to the user
@@ -272,7 +275,7 @@ def _run_helper(job: Job, cmd: list):
                 job.stats.warnings.append(msg.get("message", ""))
         elif kind == "done":
             st = msg.get("stats", {})
-            for key in ("files_shredded", "files_failed", "dirs_removed", "links_removed",
+            for key in ("files_shredded", "files_failed", "shared_kept", "dirs_removed", "links_removed",
                         "bytes_data", "bytes_written"):
                 setattr(job.stats, key, st.get(key, 0))
         elif kind == "cancelled":
