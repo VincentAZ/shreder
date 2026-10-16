@@ -128,7 +128,7 @@ class ShrederApp(Adw.Application):
     def _about(self):
         about = Adw.AboutDialog(
             application_name="Shreder", application_icon=APP_ID, version=__version__,
-            developer_name="Shreder", license_type=Gtk.License.GPL_3_0,
+            developer_name="Shreder", license_type=Gtk.License.MIT_X11,
             comments="A command center for secure file shredding and free-space wiping, with "
                      "DoD 5220.22-M, Gutmann and other overwrite standards.")
         about.add_legal_section(

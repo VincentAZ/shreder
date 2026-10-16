@@ -192,6 +192,6 @@ The core overwrite logic is in `shreder/engine.py`, system integration in `shred
 
 Bug reports and focused pull requests are welcome. For bugs, include your distribution, Python/GTK/libadwaita versions, filesystem and drive type, and reproduction steps using disposable files. Redact personal paths and filenames from logs and screenshots before posting them in [GitHub issues](https://github.com/VincentAZ/shreder/issues).
 
-## License status
+## License
 
-The application's About dialog identifies GPL-3.0. This repository does not yet include a standalone license file; that should be resolved before relying on it for redistribution.
+Shreder is licensed under the [MIT License](LICENSE).
