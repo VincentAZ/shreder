@@ -9,6 +9,22 @@ Shreder brings file shredding, saved-folder schedules, drive information, and cl
 
 **Deletion is destructive.** Start with disposable test files. Overwriting cannot guarantee removal of every physical copy on SSDs, flash storage, or copy-on-write filesystems. Read [Storage limitations](#storage-limitations) before using Shreder for sensitive data.
 
+## Screenshots
+
+Captured from the app in a clean, isolated session with no personal files or history. Host drive information was excluded from the capture session.
+
+**Command Center** — quick actions, cleanup tools, and operation statistics.
+
+![Shreder Command Center showing cleanup actions and statistics in a fresh session](docs/screenshots/command-center.png)
+
+**Shred Files** — drag-and-drop targets, overwrite methods, and final-pass verification.
+
+![Shreder Shred Files screen showing the drop zone, empty queue, and overwrite settings](docs/screenshots/shred-files.png)
+
+**Guides** — workflows for different storage types and cleanup tasks.
+
+![Shreder Guides screen showing file deletion and privacy cleanup scenarios](docs/screenshots/guides.png)
+
 ## What it does
 
 - **Shred files and folders:** drag and drop targets, overwrite file contents, optionally verify the final pass, scramble filenames, and remove them.
