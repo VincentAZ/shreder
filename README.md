@@ -9,6 +9,8 @@ Shreder brings file shredding, saved-folder schedules, drive information, and cl
 
 **Deletion is destructive.** Start with disposable test files. Overwriting cannot guarantee removal of every physical copy on SSDs, flash storage, or copy-on-write filesystems. Read [Storage limitations](#storage-limitations) before using Shreder for sensitive data.
 
+**Explore:** [Screenshots](#screenshots) · [Features](#what-it-does) · [Install](#install-from-source) · [Desktop workflows](#desktop-workflows) · [CLI](#command-line) · [Privacy](#privacy-and-local-data) · [Troubleshooting](#troubleshooting) · [Development](#development-and-contributions)
+
 ## Screenshots
 
 Captured from the app in a clean, isolated session with no personal files or history. Host drive information was excluded from the capture session.
@@ -73,6 +75,8 @@ Open **Shreder** from your application menu, or run:
 
 The installer creates per-user launchers in `~/.local/bin`, a desktop entry, an icon, and a Nautilus script. It does not copy the application into a separate installation directory: **keep the checkout in place**. If you move it, rerun the installer. Add `~/.local/bin` to your `PATH` to use `shreder` and `shreder-cli` by name.
 
+Run `./install.sh` as your normal user; only the dependency-install command above needs `sudo`. The launchers use `/usr/bin/python3`, so GTK bindings must be available to that interpreter.
+
 To omit the Files right-click integration:
 
 ```sh
@@ -95,6 +99,51 @@ For CLI-only use, skip the desktop installer:
 Use **Remembered Folders** for repeat cleanup. Daily and weekly schedules are checked hourly by a systemd user timer; execution depends on the user service manager running. The app does not need to remain open.
 
 Free-space wiping deliberately fills the target filesystem and can disrupt other applications that need to write there. Run it when other disk activity can wait. Normal completion and cancellation attempt to remove fill files; recorded interrupted jobs are checked for cleanup on app startup or scheduled runs.
+
+## Desktop workflows
+
+### Files and folders
+
+Add targets through **Shred Files**, drag and drop them onto the page, or select them in Nautilus and choose **Scripts → Shred with Shreder**. Select an overwrite method and whether to verify the final pass, then review the confirmation. The job queue lets you submit work while another operation runs.
+
+### Remembered folders and schedules
+
+Choose **Remembered Folders → Add Folder…** to configure a location:
+
+- Set a display name and use the default overwrite method or choose one for that folder.
+- Choose whether to keep the folder and shred its contents, or remove the folder itself.
+- Filter by modification age: `30` means items last modified more than 30 days ago; `0` disables the age filter.
+- Include or skip hidden entries within the folder.
+- Select manual cleanup, daily, or weekly execution. Scheduling is available only when keeping the folder itself.
+
+The example below uses a demo path, a 30-day age filter, and a weekly schedule. It was captured without saving or running the schedule.
+
+![Shreder folder settings showing a demo Downloads folder, a 30-day filter, hidden files disabled, and weekly scheduling](docs/screenshots/folder-settings.png)
+
+The timer checks hourly, with an additional check shortly after the timer starts. Daily and weekly intervals are based on the folder's last recorded run, not a chosen time of day. A newly scheduled folder with no previous run is due at the next check. Missing folders are skipped. **Forget Folder** removes the saved configuration without deleting the folder or its contents.
+
+### Free space and TRIM
+
+Open **Wipe Free Space**, choose a detected drive and overwrite method, and review the storage warnings. Enable **Run with administrator rights** only when needed for reserved space or an otherwise unwritable location; authorization uses `pkexec`. **Run TRIM** is a separate action for supported drives and also requests administrator authorization.
+
+The directory supplied to a CLI free-space wipe selects the entire filesystem containing it; it does not limit the wipe to that directory. Free-space wiping does not intentionally overwrite existing files, but filling the filesystem can cause other applications' writes to fail.
+
+### Activity and preferences
+
+Open **Activity** to inspect queued jobs and recent results. Expand entries with problems to see recorded errors and warnings. Shared hard-link data may have been deliberately preserved even when the selected names were removed.
+
+The main menu's **Preferences** controls the default method, final-pass verification, filename-renaming passes, notifications, and Files integration. It also shows scheduler status and offers separate actions to clear history and reset statistics. Clearing one does not clear the other.
+
+### Keyboard shortcuts
+
+| Shortcut | Action |
+| --- | --- |
+| `Ctrl+O` | Add files |
+| `Ctrl+Shift+O` | Add folders |
+| `Ctrl+1` through `Ctrl+6` | Switch pages in sidebar order |
+| `Ctrl+,` | Open Preferences |
+| `Ctrl+?` | Show keyboard shortcuts |
+| `Ctrl+Q` | Quit |
 
 ## Command line
 
@@ -119,9 +168,27 @@ shreder-cli folders
 shreder-cli run-scheduled
 ```
 
-`shred` also supports `--skip-hidden`, `--rename-passes`, and `--json`. Both `shred` and `wipe-free` accept `--yes` to bypass confirmation; use that only for targets you have already checked.
+### Options
+
+| Option | Commands | Behavior |
+| --- | --- | --- |
+| `-m`, `--method ID` | `shred`, `wipe-free` | Choose an overwrite method; default: `dod3` |
+| `--verify` | `shred` | Read back the final overwrite pass |
+| `--keep-root` | `shred` | Keep each selected folder itself; process its contents |
+| `--older-than DAYS` | `shred` | Filter by modification age; default: no age filter |
+| `--skip-hidden` | `shred` | Skip hidden entries while walking folders |
+| `--rename-passes N` | `shred` | Number of filename-scrambling renames; default: `3` |
+| `--shred-shared` | `shred` | Overwrite data even when hard links exist outside the selection |
+| `-y`, `--yes` | `shred`, `wipe-free` | Skip the confirmation prompt |
+| `--json` | `shred`, `wipe-free` | Emit newline-delimited JSON and skip confirmation |
+
+**Both `--yes` and `--json` bypass confirmation.** Check targets before using either in scripts. There is no dry-run option. JSON output includes progress, log, completion, cancellation, or error events as applicable; paths and filenames may appear in that output.
 
 The GUI enables verification by default. CLI shredding requires `--verify` to enable it.
+
+Use `shreder-cli shred --help` or `shreder-cli wipe-free --help` for command-specific help. Press `Ctrl+C` to request cancellation during an operation. Direct CLI `shred` and `wipe-free` commands do not add entries to the app's Activity history; GUI and scheduled jobs do.
+
+For automation, inspect results as well as exit codes: `shred` returns `1` for recorded errors or a declined confirmation, `2` for refused targets, and `130` for cancellation. Warnings about preserved shared data can accompany exit code `0`. The scheduled runner can return `0` even when an individual job failed; review its output and Activity history.
 
 ## Overwrite methods
 
@@ -191,6 +258,32 @@ Settings and history are kept by default. To remove them too:
 ```
 
 Uninstalling does not delete the source checkout. Purging removes local data files using ordinary deletion, not secure overwriting.
+
+## Troubleshooting
+
+**The installer reports missing GTK or an old libadwaita.** Install the distribution packages listed above and verify that libadwaita is at least 1.7. A Python virtual environment or a newer Python alone does not upgrade the system GTK libraries. Check the interpreter used by the launchers:
+
+```sh
+/usr/bin/python3 -c 'import gi; gi.require_version("Gtk", "4.0"); gi.require_version("Adw", "1"); from gi.repository import Adw; print(Adw.get_major_version(), Adw.get_minor_version())'
+```
+
+**`shreder` is not found, or a launcher stopped working.** Try `~/.local/bin/shreder` directly. Ensure `~/.local/bin` is on your `PATH`. If the checkout moved, rerun `./install.sh` from its new location. If you use scheduled folders, resave a scheduled folder's settings to regenerate the timer's application path.
+
+**The Files action is missing.** The integration is a Nautilus script under the **Scripts** submenu, not a general extension for every file manager. Enable it in Preferences or rerun the installer without `--no-files-action`, then reopen Files. The app currently writes this script under `~/.local/share/nautilus/scripts` even when `XDG_DATA_HOME` is customized; uninstall uses `XDG_DATA_HOME`, so a custom setup may require removing that script separately.
+
+**A scheduled folder did not run.** Confirm that the location exists, its schedule is enabled, and the systemd user manager is running. New schedules are checked by the timer, rather than immediately when saved. Inspect the timer and recent runner output:
+
+```sh
+systemctl --user status shreder-scheduler.timer
+systemctl --user list-timers shreder-scheduler.timer
+journalctl --user -u shreder-scheduler.service -n 50 --no-pager
+```
+
+These commands inspect status; `shreder-cli run-scheduled` actually executes due jobs. Journal output can contain folder names—redact it before sharing.
+
+**A drive is missing or TRIM fails.** Use **Rescan drives**, confirm the filesystem is mounted, and check that `lsblk` is available. Shreder filters out unsupported and system-only mounts. TRIM depends on filesystem/device support and successful `pkexec` authorization; inspect the reported error in Activity.
+
+**A file was skipped or its shared data was kept.** Check Activity's expanded warnings. Protected locations, mounted subtrees, special files, permissions, age filters, and hard links can affect what is processed. Removing a hard-linked filename does not mean the shared contents were overwritten.
 
 ## Development and contributions
 
